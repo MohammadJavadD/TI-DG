@@ -78,7 +78,13 @@ print('Train mode: {}'.format(args.train_mode))
 print('Train model: {}'.format(args.train_model))
 print('Seed: {}'.format(args.seed))
 
-
+acc_ = []
+seeds_ = []
+test_ = []
+best_target_acc_ = []
+best_val_acc_ = [] 
+best_loss_acc_ = [] 
+last_acc_ = []
 acc_runs = []
 acc_blind = []
 seeds = [1, 10, 100]
@@ -160,13 +166,15 @@ for run in range(args.n_runs):
 		torch.backends.cudnn.benchmark = True
 			
 	trainer = TrainLoop(models_dict, optimizer_task, source_loader, test_source_loader, target_loader, args.nadir_slack, args.alpha, args.patience, args.factor, args.smoothing, args.warmup_its, args.lr_threshold, checkpoint_path=checkpoint_path, checkpoint_epoch=args.checkpoint_epoch, cuda=args.cuda, ablation=args.ablation, logging=args.logging, train_mode=args.train_mode)
-	err, err_blind = trainer.train(n_epochs=args.epochs, save_every=args.save_every)
+	best_tar, best_val, best_loss, last  = trainer.train(n_epochs=args.epochs, save_every=args.save_every)
 
-	acc_runs.append(1-err)
-	acc_blind.append(err_blind)
+	best_target_acc_.append(best_tar)
+	best_val_acc_.append(best_val)
+	best_loss_acc_.append(best_loss)
+	last_acc_.append(last)
+	seeds_.append(args.seed)
 
-df = pandas.DataFrame(data={'Acc-{}'.format(args.target): acc_runs, 'Seed': seeds[:args.n_runs]})
+df = pandas.DataFrame(data={'Seed': seeds_, 'Bst_Acc_Target': best_target_acc_, 'Bst_Acc_val': best_val_acc_, 'Bst_Acc_loss': best_loss_acc_,'last_Acc': last_acc_ })
 df.to_csv('./accuracy_runs_'+args.target+'.csv', sep=',',mode='a', index = False)
 
-df = pandas.DataFrame(data={'Acc-{}'.format(args.target): acc_runs, 'Seed': seeds[:args.n_runs]})
-df.to_csv('./accuracy_runs_'+args.target+'_blind.csv', sep=',',mode='a', index = False)
+

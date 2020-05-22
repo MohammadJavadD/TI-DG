@@ -61,11 +61,11 @@ class TrainLoop(object):
 		else:
 			self.ce_criterion = torch.nn.CrossEntropyLoss()	#torch.nn.NLLLoss()#
 
-		#loss_domain_discriminator = F.binary_cross_entropy_with_logits(y_predict, curr_y_domain)
+		#loss_domain_discriminator 
 		weight = torch.tensor([2.0/3.0, 1.0/3.0]).to(self.device)
-			#d_cr=torch.nn.CrossEntropyLoss(weight=weight)
+		#d_cr=torch.nn.CrossEntropyLoss(weight=weight)
 		self.d_cr=torch.nn.NLLLoss(weight=weight)
-		#self.d_cr=  F.binary_cross_entropy_with_logits()
+		
 	#### Edit####
 	def adjust_learning_rate(self,optimizer, epoch=1,every_n=700,In_lr=0.01):
 		"""Sets the learning rate to the initial LR decayed by 10 every n epoch epochs"""
@@ -125,9 +125,7 @@ class TrainLoop(object):
 			lr_t= self.adjust_learning_rate(self.optimizer_task,In_lr=lr_t)
 			for _, disc in enumerate(self.domain_discriminator_list):
 				lr_d= self.adjust_learning_rate(disc.optimizer,In_lr=lr_d)
-			
-			
-			
+				
 			self.alpha= 1 - lambd
 			#print('Alpha = {}' .format(self.alpha))
 			j += 1
@@ -191,8 +189,12 @@ class TrainLoop(object):
 			self.writer.close()
 		
 		idx_final = np.argmax(self.history['accuracy_source'])	
+		idx_loss = np.argmin(self.history['loss_task'])	
+		print('min loss task = {} and corresponding target accuracy is = {}'.format(idx_loss+1,self.history['accuracy_target'][idx_loss]))
 
-		return np.max(self.history['accuracy_target']), self.history['accuracy_target'][-1] 
+
+		return np.max(self.history['accuracy_target']), self.history['accuracy_target'][idx], self.history['accuracy_target'][idx_loss], self.history['accuracy_target'][-1] 
+	
 		
 	def train_step(self, batch):
 		self.feature_extractor.train()
@@ -274,38 +276,12 @@ class TrainLoop(object):
 
 		task_loss = self.ce_criterion(task_out, y_task)
 		loss_total = self.alpha*task_loss + (1-self.alpha)*hypervolume/len(loss_domain_disc_list)
-		#loss_total = task_loss + self.alpha *hypervolume/len(loss_domain_disc_list)
 
 		self.optimizer_task.zero_grad()
 		loss_total.backward()
 		self.optimizer_task.step()
 		
-		'''
-		# DOMAIN DISCRIMINATORS (Second-After)
-		for i, disc in enumerate(self.domain_discriminator_list):
-			y_predict = disc.forward(features_).squeeze()
-			
-			curr_y_domain = torch.where(y_domain == i, torch.ones(y_domain.size(0)), torch.zeros(y_domain.size(0)))
-			curr_y_domain.type_as(y_domain)
-			#print(y_domain.shape,curr_y_domain.shape,y_predict.shape)
-			#print(sum(curr_y_domain))
-			if self.cuda_mode:
-				curr_y_domain = curr_y_domain.long().to(self.device)
-
-			
-			loss_domain_discriminator = self.d_cr (y_predict, curr_y_domain)
-			#print(loss_domain_discriminator)
 		
-			if self.logging:
-				self.writer.add_scalar('train/D{}_loss'.format(i), loss_domain_discriminator, self.total_iter)
-			
-			disc.optimizer.zero_grad()
-			loss_domain_discriminator.backward()
-			disc.optimizer.step()
-
-			####
-		
-		'''
 		losses_return = task_loss.item(), hypervolume.item(), loss_total.item()
 		return losses_return
 
